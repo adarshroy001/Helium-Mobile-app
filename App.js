@@ -7,12 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
 
 // Screens
-import SplashScreen from './src/screens/SplashScreen';
-import PhoneOTPScreen from './src/screens/PhoneOTPScreen';
-import NameInputScreen from './src/screens/NameInputScreen';
-import ProductVideosScreen from './src/screens/ProductVideosScreen';
+import SplashScreen from './src/screens/prospect/SplashScreen';
+import PhoneOTPScreen from './src/screens/prospect/PhoneOTPScreen';
+import NameInputScreen from './src/screens/prospect/NameInputScreen';
+import ProductVideosScreen from './src/screens/prospect/ProductVideosScreen';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
-import ProductDetailScreen from './src/screens/ProductDetailScreen';
+import ProductDetailScreen from './src/screens/customer/ProductDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
