@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -19,7 +19,8 @@ const NameInputScreen: React.FC<Props> = ({ navigation }) => {
     if (name.trim().length < 2) {
       return;
     }
-    navigation.navigate('ProductVideos');
+    Keyboard.dismiss();
+    navigation.navigate('MainApp');
   };
 
   return (
@@ -28,6 +29,7 @@ const NameInputScreen: React.FC<Props> = ({ navigation }) => {
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className="flex-1 px-6"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           {/* Header */}
           <View className="mt-8 mb-16">
@@ -72,6 +74,7 @@ const NameInputScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleContinue}
               disabled={name.trim().length < 2}
               className="mb-6"
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={name.trim().length >= 2 ? ['#3b787b', '#033129'] : ['#e2e8e6', '#e2e8e6']}

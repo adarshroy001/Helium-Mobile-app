@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -33,6 +33,7 @@ const PhoneOTPScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
     setIsLoading(true);
+    Keyboard.dismiss();
 
     // Simulate API call
     setTimeout(() => {
@@ -63,13 +64,18 @@ const PhoneOTPScreen: React.FC<Props> = ({ navigation }) => {
       });
       return;
     }
+    Keyboard.dismiss();
     navigation.navigate('NameInput');
   };
 
   return (
     <LinearGradient colors={['#f6fdfc', '#ffffff']} className="flex-1">
       <SafeAreaView className="flex-1">
-        <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          className="flex-1 px-6" 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <View className="mt-8 mb-12">
             <Text className="text-neutral-darkGray text-3xl font-bold mb-2">
@@ -114,6 +120,7 @@ const PhoneOTPScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={handleSendOTP}
                 disabled={isLoading}
                 className="mb-4"
+                activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={['#3b787b', '#033129']}
@@ -151,7 +158,11 @@ const PhoneOTPScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               {/* Verify Button */}
-              <TouchableOpacity onPress={handleVerifyOTP} className="mb-4">
+              <TouchableOpacity 
+                onPress={handleVerifyOTP} 
+                className="mb-4"
+                activeOpacity={0.8}
+              >
                 <LinearGradient
                   colors={['#3b787b', '#033129']}
                   className="py-4 rounded-helium items-center shadow-helium"
@@ -163,7 +174,10 @@ const PhoneOTPScreen: React.FC<Props> = ({ navigation }) => {
               {/* Resend OTP */}
               <View className="items-center">
                 <Text className="text-neutral-textGray text-sm mb-2">Didn't receive code?</Text>
-                <TouchableOpacity onPress={handleSendOTP}>
+                <TouchableOpacity 
+                  onPress={handleSendOTP}
+                  activeOpacity={0.8}
+                >
                   <Text className="text-primary-base font-semibold">Resend OTP</Text>
                 </TouchableOpacity>
               </View>

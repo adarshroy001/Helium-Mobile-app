@@ -9,12 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabParamList } from '../types';
 
 // Customer Screens
-import HomeScreen from '../screens/customer/HomeScreen';
-import ReferralScreen from '../screens/customer/ReferralScreen';
-import SupportScreen from '../screens/customer/SupportScreen';
-
-// Prospect Screens (for shop functionality)
-import ShopScreen from '../screens/prospect/ShopScreen';
+import RemoteScreen from '../screens/customer/RemoteScreen';
+import AnalyticsScreen from '../screens/customer/AnalyticsScreen';
+import ServicesScreen from '../screens/customer/ServicesScreen';
+import ProfileScreen from '../screens/customer/ProfileScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -44,17 +42,17 @@ const CustomerNavigator: React.FC = () => {
           let iconName: keyof typeof Feather.glyphMap;
 
           switch (route.name) {
-            case 'Home':
-              iconName = 'home';
+            case 'Remote':
+              iconName = 'smartphone';
               break;
-            case 'Shop':
-              iconName = 'shopping-bag';
+            case 'Analytics':
+              iconName = 'bar-chart-2';
               break;
-            case 'Referral':
-              iconName = 'gift';
+            case 'Services':
+              iconName = 'tool';
               break;
-            case 'Support':
-              iconName = 'help-circle';
+            case 'Profile':
+              iconName = 'user';
               break;
             default:
               iconName = 'circle';
@@ -119,10 +117,10 @@ const CustomerNavigator: React.FC = () => {
         tabBarBackground: () => <TabBarBackground />
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Shop" component={ShopScreen} />
-      <Tab.Screen name="Referral" component={ReferralScreen} />
-      <Tab.Screen name="Support" component={SupportScreen} />
+      <Tab.Screen name="Remote" component={RemoteScreen} />
+      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+      <Tab.Screen name="Services" component={ServicesScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };

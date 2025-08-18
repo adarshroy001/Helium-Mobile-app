@@ -9,10 +9,10 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Home: undefined;
-  Shop: undefined;
-  Referral: undefined;
-  Support: undefined;
+  Remote: undefined;
+  Analytics: undefined;
+  Services: undefined;
+  Profile: undefined;
 };
 
 // Product types

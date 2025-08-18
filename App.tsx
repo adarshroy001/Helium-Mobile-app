@@ -14,7 +14,6 @@ import { RootStackParamList } from './src/types';
 import SplashScreen from './src/screens/prospect/SplashScreen';
 import PhoneOTPScreen from './src/screens/prospect/PhoneOTPScreen';
 import NameInputScreen from './src/screens/prospect/NameInputScreen';
-import ProductVideosScreen from './src/screens/prospect/ProductVideosScreen';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import ProductDetailScreen from './src/screens/customer/ProductDetailScreen';
 
@@ -36,7 +35,6 @@ export default function App(): React.JSX.Element {
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="PhoneOTP" component={PhoneOTPScreen} />
           <Stack.Screen name="NameInput" component={NameInputScreen} />
-          <Stack.Screen name="ProductVideos" component={ProductVideosScreen} />
           <Stack.Screen name="MainApp" component={MainTabNavigator} />
           <Stack.Screen 
             name="ProductDetail" 
