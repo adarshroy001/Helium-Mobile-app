@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, PanResponder, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 
 const RemoteScreen: React.FC = () => {
   const [smartSaveMode, setSmartSaveMode] = useState(true);
@@ -12,81 +12,160 @@ const RemoteScreen: React.FC = () => {
   const [swingMode, setSwingMode] = useState<'horizontal' | 'vertical' | 'off'>('off');
 
   const togglePower = () => setIsOn(!isOn);
-  const increaseTemp = () => temperature < 30 && setTemperature(temperature + 1);
-  const decreaseTemp = () => temperature > 16 && setTemperature(temperature - 1);
+  const increaseTemp = () => {
+    if (temperature < 30) {
+      setTemperature(temperature + 1);
+    }
+  };
+  const decreaseTemp = () => {
+    if (temperature > 16) {
+      setTemperature(temperature - 1);
+    }
+  };
 
   // Function to handle swing mode selection
   const handleSwingMode = (mode: 'horizontal' | 'vertical') => {
     setSwingMode(swingMode === mode ? 'off' : mode);
   };
 
-  // Semicircular temperature control component using Slider
-  const SemicircularTempControl = () => {
+  // Interactive circular temperature control component
+  const CircularTempControl = () => {
+    const radius = 60;
+    const strokeWidth = 12;
+    const center = 70; // radius + strokeWidth/2 + margin
     const minTemp = 16;
     const maxTemp = 30;
     
+    // Calculate angle based on temperature (semicircle: 180 degrees)
+    const tempRange = maxTemp - minTemp;
+    const currentAngle = ((temperature - minTemp) / tempRange) * 180;
+    
+    // Convert angle to radians for thumb position
+    const angleInRadians = (currentAngle - 90) * (Math.PI / 180); // -90 to start from top
+    const thumbX = center + radius * Math.cos(angleInRadians);
+    const thumbY = center + radius * Math.sin(angleInRadians);
+    
+    // Helper function to convert polar coordinates to cartesian
+    const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
+      const angleInRadians = (angleInDegrees - 90) * (Math.PI / 180.0);
+      return {
+        x: centerX + (radius * Math.cos(angleInRadians)),
+        y: centerY + (radius * Math.sin(angleInRadians))
+      };
+    };
+    
+    // Create path for semicircle
+    const createPath = (startAngle: number, endAngle: number) => {
+      const start = polarToCartesian(center, center, radius, endAngle);
+      const end = polarToCartesian(center, center, radius, startAngle);
+      const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+      return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+    };
+
+    // Handle touch events for circular slider
+    const handleTouch = (evt: any) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      
+      // Calculate angle from touch position
+      const dx = locationX - center;
+      const dy = locationY - center;
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90; // +90 to adjust for starting position
+      
+      // Constrain to semicircle (0 to 180 degrees)
+      if (angle < 0) angle = 0;
+      if (angle > 180) angle = 180;
+      
+      // Convert angle to temperature
+      const newTemp = Math.round(minTemp + (angle / 180) * tempRange);
+      setTemperature(Math.max(minTemp, Math.min(maxTemp, newTemp)));
+    };
+
+    // Pan responder for drag gestures
+    const panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: handleTouch,
+      onPanResponderMove: handleTouch,
+      onPanResponderRelease: () => {},
+    });
+
     return (
       <View className="items-center mb-4">
-        {/* Semicircular Visual Wrapper */}
-        <View className="relative" style={{ width: 120, height: 70 }}>
-          {/* Background Semicircle Visual */}
-          <View 
-            className="absolute border-8 border-gray-300"
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              borderBottomColor: 'transparent',
-              borderLeftColor: '#e5e7eb',
-              borderRightColor: '#e5e7eb',
-              borderTopColor: '#e5e7eb',
-              transform: [{ rotate: '0deg' }],
-              top: -50
-            }}
-          />
-          
-          {/* Active Semicircle Visual */}
-          <View 
-            className="absolute border-8 border-blue-500"
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              borderBottomColor: 'transparent',
-              borderLeftColor: '#0369a1',
-              borderRightColor: 'transparent',
-              borderTopColor: 'transparent',
-              transform: [{ rotate: `${(temperature - minTemp) / (maxTemp - minTemp) * 180 - 90}deg` }],
-              top: -50
-            }}
-          />
-          
-          {/* Temperature Control Slider (Hidden but functional) */}
-          <View className="absolute" style={{ top: 10, left: -10, width: 140 }}>
-            <Slider
-              style={{ width: 140, height: 40 }}
-              minimumValue={minTemp}
-              maximumValue={maxTemp}
-              value={temperature}
-              step={1}
-              onValueChange={setTemperature}
-              minimumTrackTintColor="transparent"
-              maximumTrackTintColor="transparent"
-              thumbTintColor="#0369a1"
+        <View 
+          style={{ width: center * 2, height: center + 20 }}
+          {...panResponder.panHandlers}
+        >
+          <Svg width={center * 2} height={center + 20}>
+            {/* Background semicircle */}
+            <Path
+              d={createPath(0, 180)}
+              fill="none"
+              stroke="#e5e7eb"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
             />
-          </View>
+            
+            {/* Active semicircle */}
+            <Path
+              d={createPath(0, currentAngle)}
+              fill="none"
+              stroke="#0369a1"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+            
+            {/* Temperature markers */}
+            {[16, 18, 20, 22, 24, 26, 28, 30].map((temp) => {
+              const markerAngle = ((temp - minTemp) / tempRange) * 180;
+              const markerRad = (markerAngle - 90) * (Math.PI / 180);
+              const markerX = center + (radius - strokeWidth/2 - 5) * Math.cos(markerRad);
+              const markerY = center + (radius - strokeWidth/2 - 5) * Math.sin(markerRad);
+              
+              return (
+                <Circle
+                  key={temp}
+                  cx={markerX}
+                  cy={markerY}
+                  r="2"
+                  fill={temp <= temperature ? "#0369a1" : "#d1d5db"}
+                />
+              );
+            })}
+            
+            {/* Draggable thumb */}
+            <Circle
+              cx={thumbX}
+              cy={thumbY}
+              r="10"
+              fill="#0369a1"
+              stroke="#ffffff"
+              strokeWidth="4"
+            />
+            
+            {/* Center temperature display */}
+            <SvgText
+              x={center}
+              y={center - 5}
+              textAnchor="middle"
+              fontSize="16"
+              fontWeight="bold"
+              fill="#0369a1"
+            >
+              {temperature}°C
+            </SvgText>
+          </Svg>
         </View>
         
         {/* Temperature adjustment buttons */}
-        <View className="flex-row justify-between w-32 mt-2">
-          <TouchableOpacity 
+        <View className="flex-row justify-between w-32 mt-4">
+          <TouchableOpacity
             onPress={decreaseTemp}
             className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
           >
             <Feather name="minus" size={14} color="#0369a1" />
           </TouchableOpacity>
           
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={increaseTemp}
             className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
           >
@@ -94,9 +173,9 @@ const RemoteScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         
-        {/* Temperature display */}
-        <Text className="text-2xl font-bold text-sky-800 mt-2">
-          {temperature}°C
+        {/* Temperature range display */}
+        <Text className="text-xs text-gray-500 mt-2">
+          {minTemp}°C - {maxTemp}°C
         </Text>
       </View>
     );
@@ -140,14 +219,14 @@ const RemoteScreen: React.FC = () => {
                   </View>
                 </View>
               </View>
-              
+
               <View className="items-center">
-                {/* Semicircular Temperature Control */}
-                <SemicircularTempControl />
-                
+                {/* Circular Temperature Control */}
+                <CircularTempControl />
+
                 {/* ON/OFF Buttons */}
                 <View className="flex-row space-x-8 mt-4">
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setIsOn(true)}
                     className={`px-6 py-2 rounded ${isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
                   >
@@ -155,7 +234,7 @@ const RemoteScreen: React.FC = () => {
                       ON
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setIsOn(false)}
                     className={`px-6 py-2 rounded ${!isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
                   >
@@ -236,13 +315,13 @@ const RemoteScreen: React.FC = () => {
                   <Text className="text-xs font-medium text-gray-700">Remote</Text>
                 </TouchableOpacity>
                 <View className="flex-row space-x-2">
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={decreaseTemp}
                     className="bg-accent-mint w-10 h-8 rounded items-center justify-center"
                   >
                     <Feather name="minus" size={16} color="#033129" />
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={increaseTemp}
                     className="bg-accent-mint w-10 h-8 rounded items-center justify-center"
                   >
@@ -250,7 +329,7 @@ const RemoteScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-              
+
               {/* Navigation Grid */}
               <View className="flex-row justify-center space-x-2">
                 <View className="bg-gray-200 w-8 h-6 rounded" />
@@ -269,8 +348,8 @@ const RemoteScreen: React.FC = () => {
               </View>
             </View>
             <Text className="text-neutral-textGray text-sm">
-              {smartSaveMode 
-                ? "• By default HELIUM SMART SAVE MODE will be on" 
+              {smartSaveMode
+                ? "• By default HELIUM SMART SAVE MODE will be on"
                 : "• Smart Save Mode is OFF - Additional settings are available (MODE, TIMER, FAN, TURBO)"
               }
             </Text>
