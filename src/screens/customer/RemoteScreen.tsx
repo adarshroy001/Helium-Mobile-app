@@ -1,10 +1,107 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 
 const RemoteScreen: React.FC = () => {
+  const [smartSaveMode, setSmartSaveMode] = useState(true);
+  const [isOn, setIsOn] = useState(false);
+  const [temperature, setTemperature] = useState(22);
+  const [swingMode, setSwingMode] = useState<'horizontal' | 'vertical' | 'off'>('off');
+
+  const togglePower = () => setIsOn(!isOn);
+  const increaseTemp = () => temperature < 30 && setTemperature(temperature + 1);
+  const decreaseTemp = () => temperature > 16 && setTemperature(temperature - 1);
+
+  // Function to handle swing mode selection
+  const handleSwingMode = (mode: 'horizontal' | 'vertical') => {
+    setSwingMode(swingMode === mode ? 'off' : mode);
+  };
+
+  // Semicircular temperature control component using Slider
+  const SemicircularTempControl = () => {
+    const minTemp = 16;
+    const maxTemp = 30;
+    
+    return (
+      <View className="items-center mb-4">
+        {/* Semicircular Visual Wrapper */}
+        <View className="relative" style={{ width: 120, height: 70 }}>
+          {/* Background Semicircle Visual */}
+          <View 
+            className="absolute border-8 border-gray-300"
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              borderBottomColor: 'transparent',
+              borderLeftColor: '#e5e7eb',
+              borderRightColor: '#e5e7eb',
+              borderTopColor: '#e5e7eb',
+              transform: [{ rotate: '0deg' }],
+              top: -50
+            }}
+          />
+          
+          {/* Active Semicircle Visual */}
+          <View 
+            className="absolute border-8 border-blue-500"
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              borderBottomColor: 'transparent',
+              borderLeftColor: '#0369a1',
+              borderRightColor: 'transparent',
+              borderTopColor: 'transparent',
+              transform: [{ rotate: `${(temperature - minTemp) / (maxTemp - minTemp) * 180 - 90}deg` }],
+              top: -50
+            }}
+          />
+          
+          {/* Temperature Control Slider (Hidden but functional) */}
+          <View className="absolute" style={{ top: 10, left: -10, width: 140 }}>
+            <Slider
+              style={{ width: 140, height: 40 }}
+              minimumValue={minTemp}
+              maximumValue={maxTemp}
+              value={temperature}
+              step={1}
+              onValueChange={setTemperature}
+              minimumTrackTintColor="transparent"
+              maximumTrackTintColor="transparent"
+              thumbTintColor="#0369a1"
+            />
+          </View>
+        </View>
+        
+        {/* Temperature adjustment buttons */}
+        <View className="flex-row justify-between w-32 mt-2">
+          <TouchableOpacity 
+            onPress={decreaseTemp}
+            className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
+          >
+            <Feather name="minus" size={14} color="#0369a1" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={increaseTemp}
+            className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
+          >
+            <Feather name="plus" size={14} color="#0369a1" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Temperature display */}
+        <Text className="text-2xl font-bold text-sky-800 mt-2">
+          {temperature}°C
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <LinearGradient colors={['#f6fdfc', '#ffffff']} className="flex-1">
       <SafeAreaView className="flex-1">
@@ -15,120 +112,173 @@ const RemoteScreen: React.FC = () => {
               Remote Control
             </Text>
             <Text className="text-neutral-textGray text-base">
-              Control your AC units remotely
+              HELIUM Smart AC Remote
             </Text>
           </View>
 
-          {/* AC Units List */}
-          <View className="mb-6">
-            <Text className="text-neutral-darkGray text-lg font-semibold mb-4">
-              Your AC Units
-            </Text>
-            
-            {/* AC Unit 1 */}
-            <View className="bg-neutral-white rounded-helium p-6 mb-4 shadow-sm border border-neutral-lightGray">
-              <View className="flex-row items-center justify-between mb-4">
-                <View>
-                  <Text className="text-neutral-darkGray text-lg font-semibold">
-                    Living Room AC
-                  </Text>
-                  <Text className="text-neutral-textGray text-sm">
-                    ProMax Series • Online
-                  </Text>
-                </View>
-                <View className="bg-green-100 px-3 py-1 rounded-full">
-                  <Text className="text-green-700 text-xs font-medium">ONLINE</Text>
-                </View>
-              </View>
-
-              {/* Temperature Display */}
-              <View className="items-center mb-6">
-                <Text className="text-6xl font-light text-neutral-darkGray mb-2">
-                  24°
-                </Text>
-                <Text className="text-neutral-textGray">Current Temperature</Text>
-              </View>
-
-              {/* Controls */}
-              <View className="flex-row justify-between items-center mb-4">
-                <TouchableOpacity className="bg-accent-mint rounded-full p-4">
-                  <Feather name="minus" size={20} color="#033129" />
-                </TouchableOpacity>
-                
-                <View className="items-center">
-                  <Text className="text-2xl font-semibold text-neutral-darkGray mb-1">
-                    20°C
-                  </Text>
-                  <Text className="text-neutral-textGray text-sm">Target</Text>
-                </View>
-                
-                <TouchableOpacity className="bg-accent-mint rounded-full p-4">
-                  <Feather name="plus" size={20} color="#033129" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Mode Buttons */}
-              <View className="flex-row justify-between">
-                <TouchableOpacity className="flex-1 bg-primary-base rounded-helium py-3 mr-2">
-                  <Text className="text-neutral-white text-center font-medium">
-                    Cool
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity className="flex-1 bg-neutral-lightGray rounded-helium py-3 ml-2">
-                  <Text className="text-neutral-textGray text-center font-medium">
-                    Auto
-                  </Text>
-                </TouchableOpacity>
-              </View>
+          {/* Remote Control Interface */}
+          <View className="bg-neutral-white rounded-3xl p-6 mb-6 shadow-lg border-2 border-neutral-lightGray">
+            {/* Smart Save Mode Header */}
+            <View className="items-center mb-4">
+              <Text className="text-xs text-neutral-textGray mb-1">
+                Smart Save Mode {smartSaveMode ? 'ON' : 'OFF'}
+              </Text>
+              <Text className="text-lg font-bold text-neutral-darkGray">
+                HELIUM
+              </Text>
             </View>
 
-            {/* AC Unit 2 */}
-            <View className="bg-neutral-white rounded-helium p-6 mb-4 shadow-sm border border-neutral-lightGray">
-              <View className="flex-row items-center justify-between mb-4">
-                <View>
-                  <Text className="text-neutral-darkGray text-lg font-semibold">
-                    Bedroom AC
-                  </Text>
-                  <Text className="text-neutral-textGray text-sm">
-                    EcoSmart Series • Offline
-                  </Text>
-                </View>
-                <View className="bg-red-100 px-3 py-1 rounded-full">
-                  <Text className="text-red-700 text-xs font-medium">OFFLINE</Text>
+            {/* Display Screen */}
+            <View className="bg-sky-100 rounded-xl p-4 mb-6 border border-sky-200">
+              <View className="flex-row items-center justify-center mb-2">
+                <MaterialIcons name="ac-unit" size={24} color="#0369a1" />
+                <View className="flex-1 mx-4">
+                  <View className="flex-row">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <View key={i} className="w-3 h-1 bg-sky-300 mr-1" />
+                    ))}
+                  </View>
                 </View>
               </View>
-
-              <View className="items-center py-8 opacity-50">
-                <Feather name="wifi-off" size={48} color="#6baba5" />
-                <Text className="text-neutral-textGray text-center mt-4">
-                  AC unit is offline
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Quick Actions */}
-          <View className="mb-8">
-            <Text className="text-neutral-darkGray text-lg font-semibold mb-4">
-              Quick Actions
-            </Text>
-            
-            <View className="flex-row justify-between">
-              <TouchableOpacity className="flex-1 bg-neutral-white rounded-helium p-4 mr-2 items-center shadow-sm border border-neutral-lightGray">
-                <Feather name="power" size={24} color="#033129" className="mb-2" />
-                <Text className="text-neutral-darkGray text-sm font-medium">
-                  Turn Off All
-                </Text>
-              </TouchableOpacity>
               
-              <TouchableOpacity className="flex-1 bg-neutral-white rounded-helium p-4 ml-2 items-center shadow-sm border border-neutral-lightGray">
-                <Feather name="thermometer" size={24} color="#033129" className="mb-2" />
-                <Text className="text-neutral-darkGray text-sm font-medium">
-                  Eco Mode
+              <View className="items-center">
+                {/* Semicircular Temperature Control */}
+                <SemicircularTempControl />
+                
+                {/* ON/OFF Buttons */}
+                <View className="flex-row space-x-8 mt-4">
+                  <TouchableOpacity 
+                    onPress={() => setIsOn(true)}
+                    className={`px-6 py-2 rounded ${isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
+                  >
+                    <Text className={`text-sm font-medium ${isOn ? 'text-white' : 'text-gray-600'}`}>
+                      ON
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setIsOn(false)}
+                    className={`px-6 py-2 rounded ${!isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
+                  >
+                    <Text className={`text-sm font-medium ${!isOn ? 'text-white' : 'text-gray-600'}`}>
+                      OFF
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Smart Save Mode Toggle */}
+            <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-3 mb-4">
+              <View className="flex-row items-center">
+                <MaterialIcons name="eco" size={20} color="#059669" />
+                <Text className="ml-2 text-neutral-darkGray font-medium">
+                  Helium Smart Save Mode
                 </Text>
-              </TouchableOpacity>
+              </View>
+              <Switch
+                value={smartSaveMode}
+                onValueChange={setSmartSaveMode}
+                trackColor={{ false: '#d1d5db', true: '#10b981' }}
+                thumbColor={smartSaveMode ? '#ffffff' : '#ffffff'}
+              />
+            </View>
+
+            {/* Additional Controls (shown when Smart Save Mode is OFF) */}
+            {!smartSaveMode && (
+              <View className="bg-gray-50 rounded-lg p-3 mb-4">
+                <View className="flex-row justify-between mb-2">
+                  <TouchableOpacity className="bg-primary-base px-3 py-2 rounded">
+                    <Text className="text-white text-xs font-medium">Mode</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="bg-gray-300 px-3 py-2 rounded">
+                    <Text className="text-gray-700 text-xs font-medium">Timer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="bg-gray-300 px-3 py-2 rounded">
+                    <Text className="text-gray-700 text-xs font-medium">Fan</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="bg-gray-300 px-3 py-2 rounded">
+                    <Text className="text-gray-700 text-xs font-medium">Turbo</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Swing Controls */}
+            <View className="bg-gray-100 rounded-lg p-3 mb-6">
+              <Text className="text-center text-neutral-darkGray font-medium mb-3">
+                Swing
+              </Text>
+              <View className="flex-row justify-center space-x-8">
+                <TouchableOpacity
+                  onPress={() => handleSwingMode('horizontal')}
+                  className={`px-4 py-2 rounded ${swingMode === 'horizontal' ? 'bg-primary-base' : 'bg-gray-300'}`}
+                >
+                  <Text className={`text-xs font-medium ${swingMode === 'horizontal' ? 'text-white' : 'text-gray-700'}`}>
+                    Horizontal
+                  </Text>
+                </TouchableOpacity>
+                <Text className="text-gray-500 self-center">|</Text>
+                <TouchableOpacity
+                  onPress={() => handleSwingMode('vertical')}
+                  className={`px-4 py-2 rounded ${swingMode === 'vertical' ? 'bg-primary-base' : 'bg-gray-300'}`}
+                >
+                  <Text className={`text-xs font-medium ${swingMode === 'vertical' ? 'text-white' : 'text-gray-700'}`}>
+                    Vertical
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Remote Control Buttons */}
+            <View className="border-t border-gray-200 pt-4">
+              <View className="flex-row justify-between mb-3">
+                <TouchableOpacity className="bg-gray-200 w-12 h-8 rounded items-center justify-center">
+                  <Text className="text-xs font-medium text-gray-700">Remote</Text>
+                </TouchableOpacity>
+                <View className="flex-row space-x-2">
+                  <TouchableOpacity 
+                    onPress={decreaseTemp}
+                    className="bg-accent-mint w-10 h-8 rounded items-center justify-center"
+                  >
+                    <Feather name="minus" size={16} color="#033129" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={increaseTemp}
+                    className="bg-accent-mint w-10 h-8 rounded items-center justify-center"
+                  >
+                    <Feather name="plus" size={16} color="#033129" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* Navigation Grid */}
+              <View className="flex-row justify-center space-x-2">
+                <View className="bg-gray-200 w-8 h-6 rounded" />
+                <View className="bg-gray-200 w-8 h-6 rounded" />
+                <View className="bg-gray-200 w-8 h-6 rounded" />
+              </View>
             </View>
           </View>
+
+          {/* Status Information */}
+          <View className="bg-neutral-white rounded-helium p-4 mb-6 shadow-sm border border-neutral-lightGray">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-neutral-darkGray font-medium">HELIUM AC Status</Text>
+              <View className="bg-green-100 px-2 py-1 rounded-full">
+                <Text className="text-green-700 text-xs font-medium">CONNECTED</Text>
+              </View>
+            </View>
+            <Text className="text-neutral-textGray text-sm">
+              {smartSaveMode 
+                ? "• By default HELIUM SMART SAVE MODE will be on" 
+                : "• Smart Save Mode is OFF - Additional settings are available (MODE, TIMER, FAN, TURBO)"
+              }
+            </Text>
+            <Text className="text-neutral-textGray text-sm mt-1">
+              • Swing Mode: {swingMode === 'off' ? 'Off' : swingMode.charAt(0).toUpperCase() + swingMode.slice(1)}
+            </Text>
+          </View>
+
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
