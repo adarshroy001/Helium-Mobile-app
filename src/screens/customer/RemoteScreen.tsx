@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, PanResponder, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, PanResponder, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
-import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 const RemoteScreen: React.FC = () => {
   const [smartSaveMode, setSmartSaveMode] = useState(true);
@@ -12,11 +13,13 @@ const RemoteScreen: React.FC = () => {
   const [swingMode, setSwingMode] = useState<'horizontal' | 'vertical' | 'off'>('off');
 
   const togglePower = () => setIsOn(!isOn);
+  
   const increaseTemp = () => {
     if (temperature < 30) {
       setTemperature(temperature + 1);
     }
   };
+  
   const decreaseTemp = () => {
     if (temperature > 16) {
       setTemperature(temperature - 1);
@@ -28,155 +31,332 @@ const RemoteScreen: React.FC = () => {
     setSwingMode(swingMode === mode ? 'off' : mode);
   };
 
-  // Interactive circular temperature control component
-  const CircularTempControl = () => {
-    const radius = 60;
-    const strokeWidth = 12;
-    const center = 70; // radius + strokeWidth/2 + margin
-    const minTemp = 16;
-    const maxTemp = 30;
+  // Custom Circular Slider Component with smooth drag functionality
+  const CustomCircularSlider: React.FC = () => {
+    const radius = 85;
+    const strokeWidth = 8;
+    const circumference = 2 * Math.PI * radius;
+    const progress = ((temperature - 16) / (30 - 16)) * 100;
+    const strokeDasharray = circumference;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
     
-    // Calculate angle based on temperature (semicircle: 180 degrees)
-    const tempRange = maxTemp - minTemp;
-    const currentAngle = ((temperature - minTemp) / tempRange) * 180;
+    // Animated values for smooth interactions
+    const scaleValue = useRef(new Animated.Value(1)).current;
+    const glowOpacity = useRef(new Animated.Value(0.1)).current;
     
-    // Convert angle to radians for thumb position
-    const angleInRadians = (currentAngle - 90) * (Math.PI / 180); // -90 to start from top
-    const thumbX = center + radius * Math.cos(angleInRadians);
-    const thumbY = center + radius * Math.sin(angleInRadians);
+    // State to track if user is currently dragging
+    const [isDragging, setIsDragging] = useState(false);
+    const [lastValidAngle, setLastValidAngle] = useState(0);
     
-    // Helper function to convert polar coordinates to cartesian
-    const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
-      const angleInRadians = (angleInDegrees - 90) * (Math.PI / 180.0);
-      return {
-        x: centerX + (radius * Math.cos(angleInRadians)),
-        y: centerY + (radius * Math.sin(angleInRadians))
-      };
-    };
-    
-    // Create path for semicircle
-    const createPath = (startAngle: number, endAngle: number) => {
-      const start = polarToCartesian(center, center, radius, endAngle);
-      const end = polarToCartesian(center, center, radius, startAngle);
-      const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-      return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
-    };
+    // Calculate handle position
+    const angle = (progress / 100) * 2 * Math.PI - Math.PI / 2;
+    const handleX = 110 + radius * Math.cos(angle);
+    const handleY = 110 + radius * Math.sin(angle);
 
-    // Handle touch events for circular slider
-    const handleTouch = (evt: any) => {
-      const { locationX, locationY } = evt.nativeEvent;
+    // Smooth temperature calculation with better precision
+    const calculateTemperatureFromPosition = useCallback((x: number, y: number) => {
+      const centerX = 110;
+      const centerY = 110;
+      const dx = x - centerX;
+      const dy = y - centerY;
       
-      // Calculate angle from touch position
-      const dx = locationX - center;
-      const dy = locationY - center;
-      let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90; // +90 to adjust for starting position
+      // Calculate distance from center
+      const distance = Math.sqrt(dx * dx + dy * dy);
       
-      // Constrain to semicircle (0 to 180 degrees)
-      if (angle < 0) angle = 0;
-      if (angle > 180) angle = 180;
+      // Only process if touch is within reasonable range of the circle
+      if (distance < radius - 40 || distance > radius + 40) {
+        return temperature; // Return current temperature if too far
+      }
       
-      // Convert angle to temperature
-      const newTemp = Math.round(minTemp + (angle / 180) * tempRange);
-      setTemperature(Math.max(minTemp, Math.min(maxTemp, newTemp)));
-    };
+      // Calculate angle from center (0 to 2π)
+      let touchAngle = Math.atan2(dy, dx);
+      
+      // Normalize to 0-2π range
+      if (touchAngle < 0) {
+        touchAngle += 2 * Math.PI;
+      }
+      
+      // Adjust for starting position (top of circle = -π/2)
+      touchAngle = touchAngle + Math.PI / 2;
+      if (touchAngle > 2 * Math.PI) {
+        touchAngle -= 2 * Math.PI;
+      }
+      
+      // Smooth angle transition to prevent jumping
+      const angleDiff = Math.abs(touchAngle - lastValidAngle);
+      if (angleDiff > Math.PI && !isDragging) {
+        // Large angle jump detected, use smoother transition
+        if (touchAngle > Math.PI) {
+          touchAngle -= 2 * Math.PI;
+        } else {
+          touchAngle += 2 * Math.PI;
+        }
+      }
+      
+      setLastValidAngle(touchAngle);
+      
+      // Convert angle to progress with better precision
+      let progressValue = touchAngle / (2 * Math.PI);
+      progressValue = Math.max(0, Math.min(1, progressValue));
+      
+      // Convert to temperature with smooth interpolation
+      const tempRange = 30 - 16;
+      const rawTemp = 16 + progressValue * tempRange;
+      
+      // Round to nearest 0.5 for smoother feel but still discrete values
+      const newTemp = Math.round(rawTemp * 2) / 2;
+      
+      // Clamp final temperature
+      return Math.max(16, Math.min(30, newTemp));
+    }, [temperature, isDragging, lastValidAngle]);
 
-    // Pan responder for drag gestures
-    const panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: handleTouch,
-      onPanResponderMove: handleTouch,
-      onPanResponderRelease: () => {},
-    });
+    // Enhanced pan responder with smoother interactions
+    const panResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          const touchX = evt.nativeEvent.locationX;
+          const touchY = evt.nativeEvent.locationY;
+          const centerX = 110;
+          const centerY = 110;
+          const distance = Math.sqrt(Math.pow(touchX - centerX, 2) + Math.pow(touchY - centerY, 2));
+          
+          // Allow dragging in a wider area around the circle
+          return distance >= radius - 50 && distance <= radius + 50;
+        },
+        onPanResponderGrant: (evt) => {
+          setIsDragging(true);
+          
+          // Haptic feedback when starting drag
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          
+          // Initial touch position calculation
+          const touchX = evt.nativeEvent.locationX;
+          const touchY = evt.nativeEvent.locationY;
+          const newTemp = calculateTemperatureFromPosition(touchX, touchY);
+          setTemperature(newTemp);
+          
+          // Animate handle scale up for visual feedback
+          Animated.parallel([
+            Animated.spring(scaleValue, {
+              toValue: 1.2,
+              useNativeDriver: true,
+              tension: 150,
+              friction: 3,
+            }),
+            Animated.timing(glowOpacity, {
+              toValue: 0.3,
+              duration: 150,
+              useNativeDriver: true,
+            })
+          ]).start();
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          // Use cumulative gesture position for smoother tracking
+          const touchX = evt.nativeEvent.locationX;
+          const touchY = evt.nativeEvent.locationY;
+          const newTemp = calculateTemperatureFromPosition(touchX, touchY);
+          
+          // Only update if temperature actually changed (reduces unnecessary re-renders)
+          if (newTemp !== temperature) {
+            setTemperature(newTemp);
+            // Add subtle haptic feedback for temperature changes
+            Haptics.selectionAsync();
+          }
+        },
+        onPanResponderRelease: () => {
+          setIsDragging(false);
+          
+          // Animate handle back to normal size
+          Animated.parallel([
+            Animated.spring(scaleValue, {
+              toValue: 1,
+              useNativeDriver: true,
+              tension: 150,
+              friction: 8,
+            }),
+            Animated.timing(glowOpacity, {
+              toValue: 0.1,
+              duration: 300,
+              useNativeDriver: true,
+            })
+          ]).start();
+        },
+        onPanResponderTerminate: () => {
+          setIsDragging(false);
+          // Reset animations if gesture is interrupted
+          Animated.parallel([
+            Animated.spring(scaleValue, {
+              toValue: 1,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowOpacity, {
+              toValue: 0.1,
+              duration: 200,
+              useNativeDriver: true,
+            })
+          ]).start();
+        },
+      })
+    ).current;
 
     return (
-      <View className="items-center mb-4">
-        <View 
-          style={{ width: center * 2, height: center + 20 }}
-          {...panResponder.panHandlers}
-        >
-          <Svg width={center * 2} height={center + 20}>
-            {/* Background semicircle */}
-            <Path
-              d={createPath(0, 180)}
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
+      <View 
+        style={{ width: 220, height: 220, justifyContent: 'center', alignItems: 'center' }}
+        {...panResponder.panHandlers}
+      >
+        <Svg width="220" height="220" style={{ position: 'absolute' }}>
+          <Defs>
+            <SvgLinearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#a855f7" />
+              <Stop offset="50%" stopColor="#c084fc" />
+              <Stop offset="100%" stopColor="#e879f9" />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#374151" />
+              <Stop offset="100%" stopColor="#4b5563" />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#9333ea" />
+              <Stop offset="50%" stopColor="#a855f7" />
+              <Stop offset="100%" stopColor="#c084fc" />
+            </SvgLinearGradient>
+          </Defs>
+          
+          {/* Animated outer glow effect */}
+          <Circle
+            cx="110"
+            cy="110"
+            r={radius + 15}
+            stroke={isDragging ? "rgba(168, 85, 247, 0.4)" : "rgba(168, 85, 247, 0.1)"}
+            strokeWidth={isDragging ? "25" : "20"}
+            fill="none"
+          />
+          
+          {/* Background track */}
+          <Circle
+            cx="110"
+            cy="110"
+            r={radius}
+            stroke="url(#trackGradient)"
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          
+          {/* Progress Circle */}
+          <Circle
+            cx="110"
+            cy="110"
+            r={radius}
+            stroke={isDragging ? "url(#activeGradient)" : "url(#purpleGradient)"}
+            strokeWidth={isDragging ? strokeWidth + 3 : strokeWidth + 2}
+            fill="none"
+            strokeDasharray={strokeDasharray}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform={`rotate(-90 110 110)`}
+          />
+          
+          {/* Draggable handle */}
+          <Circle
+            cx={handleX}
+            cy={handleY}
+            r={isDragging ? "16" : "14"}
+            fill={isDragging ? "url(#activeGradient)" : "url(#purpleGradient)"}
+          />
+          <Circle
+            cx={handleX}
+            cy={handleY}
+            r={isDragging ? "12" : "10"}
+            fill="#ffffff"
+          />
+          <Circle
+            cx={handleX}
+            cy={handleY}
+            r={isDragging ? "6" : "5"}
+            fill={isDragging ? "url(#activeGradient)" : "url(#purpleGradient)"}
+          />
+        </Svg>
+        
+        {/* Center content */}
+        <View style={{ position: 'absolute', alignItems: 'center' }}>
+          <Text className="text-5xl font-bold text-white mb-2" style={{ fontWeight: '300' }}>
+            {temperature}
+          </Text>
+          <Text className="text-lg text-gray-400 mb-4">
+            °C
+          </Text>
+          
+          {/* Integrated power button */}
+          <TouchableOpacity
+            onPress={togglePower}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: isOn ? 'rgba(168, 85, 247, 0.2)' : 'rgba(107, 114, 128, 0.3)',
+              borderWidth: 2,
+              borderColor: isOn ? '#a855f7' : '#6b7280',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <MaterialIcons 
+              name="power-settings-new" 
+              size={28} 
+              color={isOn ? '#a855f7' : '#9ca3af'} 
             />
-            
-            {/* Active semicircle */}
-            <Path
-              d={createPath(0, currentAngle)}
-              fill="none"
-              stroke="#0369a1"
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-            />
-            
-            {/* Temperature markers */}
-            {[16, 18, 20, 22, 24, 26, 28, 30].map((temp) => {
-              const markerAngle = ((temp - minTemp) / tempRange) * 180;
-              const markerRad = (markerAngle - 90) * (Math.PI / 180);
-              const markerX = center + (radius - strokeWidth/2 - 5) * Math.cos(markerRad);
-              const markerY = center + (radius - strokeWidth/2 - 5) * Math.sin(markerRad);
-              
-              return (
-                <Circle
-                  key={temp}
-                  cx={markerX}
-                  cy={markerY}
-                  r="2"
-                  fill={temp <= temperature ? "#0369a1" : "#d1d5db"}
-                />
-              );
-            })}
-            
-            {/* Draggable thumb */}
-            <Circle
-              cx={thumbX}
-              cy={thumbY}
-              r="10"
-              fill="#0369a1"
-              stroke="#ffffff"
-              strokeWidth="4"
-            />
-            
-            {/* Center temperature display */}
-            <SvgText
-              x={center}
-              y={center - 5}
-              textAnchor="middle"
-              fontSize="16"
-              fontWeight="bold"
-              fill="#0369a1"
-            >
-              {temperature}°C
-            </SvgText>
-          </Svg>
+          </TouchableOpacity>
         </View>
+      </View>
+    );
+  };
+
+  // Cool circular temperature control using custom SVG slider
+  const CircularTempControl = () => {
+    return (
+      <View className="items-center mb-4">
+        <CustomCircularSlider />
         
         {/* Temperature adjustment buttons */}
-        <View className="flex-row justify-between w-32 mt-4">
+        <View className="flex-row justify-between w-48 mt-8">
           <TouchableOpacity
             onPress={decreaseTemp}
-            className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
+            style={{
+              backgroundColor: 'rgba(168, 85, 247, 0.2)',
+              borderWidth: 1,
+              borderColor: '#a855f7',
+              borderRadius: 25,
+              width: 50,
+              height: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Feather name="minus" size={14} color="#0369a1" />
+            <Feather name="minus" size={24} color="#a855f7" />
           </TouchableOpacity>
+          
+          <View className="items-center justify-center">
+            <Text className="text-xs text-gray-400 mb-1">Range</Text>
+            <Text className="text-sm font-medium text-gray-300">16°C - 30°C</Text>
+          </View>
           
           <TouchableOpacity
             onPress={increaseTemp}
-            className="bg-sky-200 rounded-full w-8 h-8 items-center justify-center"
+            style={{
+              backgroundColor: 'rgba(168, 85, 247, 0.2)',
+              borderWidth: 1,
+              borderColor: '#a855f7',
+              borderRadius: 25,
+              width: 50,
+              height: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Feather name="plus" size={14} color="#0369a1" />
+            <Feather name="plus" size={24} color="#a855f7" />
           </TouchableOpacity>
         </View>
-        
-        {/* Temperature range display */}
-        <Text className="text-xs text-gray-500 mt-2">
-          {minTemp}°C - {maxTemp}°C
-        </Text>
       </View>
     );
   };
@@ -208,13 +388,13 @@ const RemoteScreen: React.FC = () => {
             </View>
 
             {/* Display Screen */}
-            <View className="bg-sky-100 rounded-xl p-4 mb-6 border border-sky-200">
+            <View className="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-700" style={{ backgroundColor: '#1f2937' }}>
               <View className="flex-row items-center justify-center mb-2">
-                <MaterialIcons name="ac-unit" size={24} color="#0369a1" />
+                <MaterialIcons name="ac-unit" size={24} color="#a855f7" />
                 <View className="flex-1 mx-4">
                   <View className="flex-row">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <View key={i} className="w-3 h-1 bg-sky-300 mr-1" />
+                      <View key={i} className="w-3 h-1 bg-purple-400 mr-1" />
                     ))}
                   </View>
                 </View>
@@ -225,20 +405,42 @@ const RemoteScreen: React.FC = () => {
                 <CircularTempControl />
 
                 {/* ON/OFF Buttons */}
-                <View className="flex-row space-x-8 mt-4">
+                <View className="flex-row space-x-8 mt-6">
                   <TouchableOpacity
                     onPress={() => setIsOn(true)}
-                    className={`px-6 py-2 rounded ${isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
+                    style={{
+                      backgroundColor: isOn ? '#a855f7' : 'rgba(107, 114, 128, 0.3)',
+                      paddingHorizontal: 24,
+                      paddingVertical: 10,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: isOn ? '#a855f7' : '#6b7280',
+                    }}
                   >
-                    <Text className={`text-sm font-medium ${isOn ? 'text-white' : 'text-gray-600'}`}>
+                    <Text style={{ 
+                      color: isOn ? '#ffffff' : '#9ca3af',
+                      fontWeight: '600',
+                      fontSize: 16
+                    }}>
                       ON
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setIsOn(false)}
-                    className={`px-6 py-2 rounded ${!isOn ? 'bg-sky-500' : 'bg-gray-300'}`}
+                    style={{
+                      backgroundColor: !isOn ? '#a855f7' : 'rgba(107, 114, 128, 0.3)',
+                      paddingHorizontal: 24,
+                      paddingVertical: 10,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: !isOn ? '#a855f7' : '#6b7280',
+                    }}
                   >
-                    <Text className={`text-sm font-medium ${!isOn ? 'text-white' : 'text-gray-600'}`}>
+                    <Text style={{ 
+                      color: !isOn ? '#ffffff' : '#9ca3af',
+                      fontWeight: '600',
+                      fontSize: 16
+                    }}>
                       OFF
                     </Text>
                   </TouchableOpacity>
